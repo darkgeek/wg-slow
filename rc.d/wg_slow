@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+
+# PROVIDE: wg_slow
+# REQUIRE: NETWORKING mountcritremote syslogd named
+
+$_rc_subr_loaded . /etc/rc.subr
+
+name="wg_slow"
+rcvar=$name
+start_cmd="wg_slow_start"
+stop_cmd="wg_slow_stop"
+
+: ${wg_slow_exe_path:=} 
+: ${wg_interface:=wg0} 
+
+wg_slow_start()
+{
+   /usr/bin/env sh -c "${wg_slow_exe_path} ${wg_interface} false" 
+}
+
+wg_slow_stop()
+{
+    ifconfig "${wg_interface}" destroy
+}
+
+load_rc_config $name
+run_rc_command "$1"
