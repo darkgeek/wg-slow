@@ -7,6 +7,7 @@
 $_rc_subr_loaded . /etc/rc.subr
 
 name="wg_slow"
+command="/home/justin/bin/wg-slow"
 rcvar=$name
 start_cmd="wg_slow_start"
 stop_cmd="wg_slow_stop"
@@ -16,11 +17,12 @@ stop_cmd="wg_slow_stop"
 
 wg_slow_start()
 {
-   /usr/bin/env sh -c "${wg_slow_exe_path} ${wg_interface} false" 
+   ${command} ${wg_interface} false > /var/log/wg_slow.log 2>&1 &
 }
 
 wg_slow_stop()
 {
+    kill -9 $rc_pid
     ifconfig "${wg_interface}" destroy
 }
 
