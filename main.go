@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 
 	"gopkg.in/ini.v1"
 )
@@ -22,6 +23,7 @@ type Peer struct {
 	AllowedIPs          string
 	Endpoint            string
 	PersistentKeepalive uint32
+	PingTarget          string
 }
 
 func main() {
@@ -57,6 +59,22 @@ func main() {
 
 	execute(buildTurnOnInterfaceCmd(wgConfig), isDryRun)
 	execute(buildShowWgStatusCmd(wgConfig), isDryRun)
+
+	// Set up a task group, in which all peers that need PersistentKeepalive will be assigned a infinite ping task respectively
+	var tasks sync.WaitGroup
+	for _, peer := range wgConfig.Peers {
+		if needKeepAlive(peer) {
+			tasks.Add(1)
+
+			go func() {
+				defer tasks.Done()
+				fmt.Printf("register peer to keepalive task set: %s\n", peer.Name)
+				registerKeepAliveService(&peer, isDryRun)
+			}()
+		}
+	}
+
+	tasks.Wait()
 }
 
 func execute(cmd string, isDryRun bool) {
@@ -123,13 +141,15 @@ func parseWgConfig(inidata *ini.File) WireguardConfig {
 				AllowedIPs: section.Key("AllowedIPs").String(),
 				Endpoint:   section.Key("Endpoint").String(),
 				Name:       section.Key("Name").String(),
+				PingTarget: section.Key("PingTarget").String(),
 			}
 			pka, err := section.Key("PersistentKeepalive").Uint()
 			if err != nil {
 				fmt.Printf("failed to read PersistentKeepalive as uint: %s\n", err)
-				os.Exit(2)
+				peer.PersistentKeepalive = 0
+			} else {
+				peer.PersistentKeepalive = uint32(pka)
 			}
-			peer.PersistentKeepalive = uint32(pka)
 
 			peers = append(peers, peer)
 		}
@@ -138,6 +158,10 @@ func parseWgConfig(inidata *ini.File) WireguardConfig {
 	wgConfig.Peers = peers
 
 	return wgConfig
+}
+
+func needKeepAlive(peer Peer) bool {
+	return peer.PersistentKeepalive != 0 && len(peer.PingTarget) > 0
 }
 
 func buildIniFilePath(wgInterface string) string {
