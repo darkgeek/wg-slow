@@ -88,7 +88,6 @@ func execute(cmd string, isDryRun bool) {
 
 		if err != nil {
 			fmt.Println(err.Error())
-			os.Exit(5)
 		}
 
 		fmt.Println(string(stdout))
